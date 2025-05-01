@@ -1,0 +1,19 @@
+Run the Keycloak setup script to ensure our realm and client are set up correctly:
+```
+chmod +x setup-keycloak.sh && ./setup-keycloak.sh
+```
+
+If migrations ran successfully. Now let's test that the django-admin command works:
+```
+python manage.py shell -c "from django.conf import settings; print(f'SECRET_KEY is set: {bool(settings.SECRET_KEY)}'); print(f'Database connection works: {bool(settings.DATABASES[\"default\"])}')"
+```
+
+check if the Django superuser exists and verify the admin creation process:
+```
+docker-compose exec web python manage.py shell -c "from django.contrib.auth.models import User; print(User.objects.filter(username='admin').exists())"
+```
+
+Check if we need to create a superuser in the Django database:
+```
+docker-compose exec web python manage.py shell -c "from django.contrib.auth.models import User; admin = User.objects.get(username='admin'); print(f'Is superuser: {admin.is_superuser}')"
+```
