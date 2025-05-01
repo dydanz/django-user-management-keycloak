@@ -31,7 +31,17 @@ const Login = () => {
     e.preventDefault();
     try {
       const response = await axios.post('/api/login/', formData);
+      // Store the token
       localStorage.setItem('token', response.data.token);
+      
+      // Also store refresh token if available
+      if (response.data.refresh_token) {
+        localStorage.setItem('refresh_token', response.data.refresh_token);
+      }
+      
+      // Configure axios to use the token for all future requests
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+      
       navigate('/profile');
     } catch (err) {
       setError(err.response?.data?.error || 'An error occurred');

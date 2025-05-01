@@ -140,6 +140,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'mozilla_django_oidc.contrib.drf.OIDCAuthentication',
+        'api.authentication.KeycloakAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -152,20 +153,43 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'api.views': {
+            'handlers': ['console'],
+            'level': 'DEBUG',  # Ensure this is set to DEBUG
+            'propagate': False,
+        },
+    },
+}
+
 # Keycloak settings
+KEYCLOAK_URL = env('KEYCLOAK_URL')
+KEYCLOAK_REALM = env('KEYCLOAK_REALM')
 OIDC_RP_CLIENT_ID = env('KEYCLOAK_CLIENT_ID')
 OIDC_RP_CLIENT_SECRET = env('KEYCLOAK_CLIENT_SECRET')
-OIDC_OP_AUTHORIZATION_ENDPOINT = f"{env('KEYCLOAK_URL')}/realms/{env('KEYCLOAK_REALM')}/protocol/openid-connect/auth"
-OIDC_OP_TOKEN_ENDPOINT = f"{env('KEYCLOAK_URL')}/realms/{env('KEYCLOAK_REALM')}/protocol/openid-connect/token"
-OIDC_OP_USER_ENDPOINT = f"{env('KEYCLOAK_URL')}/realms/{env('KEYCLOAK_REALM')}/protocol/openid-connect/userinfo"
-OIDC_OP_JWKS_ENDPOINT = f"{env('KEYCLOAK_URL')}/realms/{env('KEYCLOAK_REALM')}/protocol/openid-connect/certs"
+OIDC_OP_AUTHORIZATION_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/auth"
+OIDC_OP_TOKEN_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token"
+OIDC_OP_USER_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/userinfo"
+OIDC_OP_JWKS_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs"
 OIDC_RP_SIGN_ALGO = 'RS256'
-OIDC_OP_LOGOUT_ENDPOINT = f"{env('KEYCLOAK_URL')}/realms/{env('KEYCLOAK_REALM')}/protocol/openid-connect/logout"
+OIDC_OP_LOGOUT_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/logout"
 
 # Authentication backends
 AUTHENTICATION_BACKENDS = (
-    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
     'django.contrib.auth.backends.ModelBackend',
+    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
 )
 
 # Login/Logout URLs
