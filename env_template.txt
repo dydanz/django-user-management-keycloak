@@ -1,0 +1,17 @@
+# Django Settings
+SECRET_KEY=django-insecure-secretkey1234567890!@#$%^&*()
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Database & Cache
+DATABASE_URL=postgres://postgres:postgres@localhost:5434/postgres
+REDIS_URL=redis://localhost:6379/0
+
+# Frontend
+FRONTEND_URL=http://localhost:3000
+
+# Keycloak Settings
+KEYCLOAK_URL=http://localhost:8080
+KEYCLOAK_REALM=django-app
+KEYCLOAK_CLIENT_ID=django-client
+KEYCLOAK_CLIENT_SECRET=your-client-secret 

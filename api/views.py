@@ -8,7 +8,59 @@ from django.core.mail import send_mail
 from django.conf import settings
 import random
 import string
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
+# Request and response schemas for Swagger
+register_schema = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    required=['username', 'email', 'password'],
+    properties={
+        'username': openapi.Schema(type=openapi.TYPE_STRING),
+        'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+        'password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD),
+    }
+)
+
+forgot_password_schema = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    required=['email'],
+    properties={
+        'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+    }
+)
+
+reset_password_schema = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    required=['email', 'token', 'new_password'],
+    properties={
+        'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+        'token': openapi.Schema(type=openapi.TYPE_STRING),
+        'new_password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD),
+    }
+)
+
+@swagger_auto_schema(
+    method='post',
+    request_body=register_schema,
+    responses={
+        201: openapi.Response('User created successfully', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+        400: openapi.Response('Bad request', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'error': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+    },
+    operation_description="Register a new user account",
+    operation_summary="User Registration",
+    tags=['Authentication']
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -28,12 +80,53 @@ def register(request):
     user = User.objects.create_user(username=username, email=email, password=password)
     return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
 
+@swagger_auto_schema(
+    method='post',
+    responses={
+        200: openapi.Response('Successfully logged out', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+    },
+    operation_description="Logout the current user",
+    operation_summary="User Logout",
+    tags=['Authentication']
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     logout(request)
     return Response({'message': 'Successfully logged out'})
 
+@swagger_auto_schema(
+    method='post',
+    request_body=forgot_password_schema,
+    responses={
+        200: openapi.Response('Password reset email sent', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+        400: openapi.Response('Email is required', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'error': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+        404: openapi.Response('User not found', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'error': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+    },
+    operation_description="Request a password reset email",
+    operation_summary="Forgot Password",
+    tags=['Authentication']
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def forgot_password(request):
@@ -61,6 +154,33 @@ def forgot_password(request):
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
+@swagger_auto_schema(
+    method='post',
+    request_body=reset_password_schema,
+    responses={
+        200: openapi.Response('Password reset successful', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+        400: openapi.Response('Invalid request', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'error': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+        404: openapi.Response('User not found', schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'error': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        )),
+    },
+    operation_description="Reset password using the token received via email",
+    operation_summary="Reset Password",
+    tags=['Authentication']
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def reset_password(request):

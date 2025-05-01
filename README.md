@@ -14,6 +14,7 @@ A full-stack monolithic application for user management with Django backend and 
 - Session Clustering
 - Forgot Password Flow
 - User Profile Management
+- API Documentation with Swagger/ReDoc
 
 ## Tech Stack
 
@@ -23,6 +24,7 @@ A full-stack monolithic application for user management with Django backend and 
 - PostgreSQL
 - Redis
 - Keycloak
+- drf-yasg (Swagger/OpenAPI)
 
 ### Frontend
 - React.js
@@ -67,6 +69,7 @@ docker-compose up --build -d
    - Django Admin: http://localhost:8000/admin/ (username: admin, password: admin)
    - Keycloak Admin: http://localhost:8080/admin/ (username: admin, password: admin)
    - Frontend: http://localhost:3000
+   - API Documentation: http://localhost:8000/swagger/ or http://localhost:8000/redoc/
    - PostgreSQL: localhost:5434 (accessible with external tools)
 
 ## Detailed Setup Instructions
@@ -142,6 +145,11 @@ docker-compose exec db cat /docker-entrypoint-initdb.d/init-db.sh
 
 ## API Endpoints
 
+All API endpoints are fully documented with Swagger. You can explore the API at:
+- Swagger UI: http://localhost:8000/swagger/
+- ReDoc: http://localhost:8000/redoc/
+
+The main endpoints include:
 - POST /api/register/ - User registration
 - POST /api/login/ - User login
 - POST /api/logout/ - User logout
