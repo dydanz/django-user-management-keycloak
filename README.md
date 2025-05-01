@@ -32,10 +32,13 @@ A full-stack monolithic application for user management with Django backend and 
 ## Prerequisites
 
 - Docker and Docker Compose
-- Node.js 16+ (for local frontend development)
-- Python 3.11+ (for local backend development)
+- `jq` command-line tool (required for Keycloak setup script)
+  - On macOS: `brew install jq`
+  - On Ubuntu/Debian: `apt-get install jq`
+  - On CentOS/RHEL: `yum install jq`
+- Basic understanding of containerized applications
 
-## Setup
+## Quick Start
 
 1. Clone the repository:
 ```bash
@@ -43,104 +46,98 @@ git clone <repository-url>
 cd django-user-management-keycloak
 ```
 
-2. Create a `.env` file in the root directory with the following content:
-```env
-DEBUG=1
-SECRET_KEY=your-secret-key-here
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-# Database
-DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
-
-# Redis
-REDIS_URL=redis://redis:6379/0
-
-# Keycloak
-KEYCLOAK_URL=http://localhost:8080
-KEYCLOAK_REALM=django-app
-KEYCLOAK_CLIENT_ID=django-client
-KEYCLOAK_CLIENT_SECRET=your-client-secret
-
-# Django Admin
-DJANGO_SUPERUSER_USERNAME=admin
-DJANGO_SUPERUSER_EMAIL=admin@example.com
-DJANGO_SUPERUSER_PASSWORD=admin
+2. Set permissions for scripts:
+```bash
+chmod +x setup.sh entrypoint.sh init-db.sh setup-keycloak.sh
 ```
 
 3. Build and start the containers:
 ```bash
-docker-compose up --build
+docker-compose up --build -d
 ```
 
-4. Initialize the database and create a superuser:
+4. Wait for all services to start up (this may take a minute or two).
+
+5. Run the Keycloak setup script:
+```bash
+./setup-keycloak.sh
+```
+
+6. Access the application services:
+   - Django Admin: http://localhost:8000/admin/ (username: admin, password: admin)
+   - Keycloak Admin: http://localhost:8080/admin/ (username: admin, password: admin)
+   - Frontend: http://localhost:3000
+   - PostgreSQL: localhost:5434 (accessible with external tools)
+
+## Detailed Setup Instructions
+
+### Project Structure
+The project follows a monorepo structure:
+- `/` - Django backend (root directory)
+- `/frontend` - React frontend
+- Docker configuration files in the root directory
+
+### Container Services
+The application consists of the following services:
+- **web**: Django application
+- **db**: PostgreSQL database
+- **redis**: Redis for caching/session management
+- **keycloak**: Keycloak for authentication and authorization
+- **frontend**: React.js application
+
+### Database Setup
+The application uses PostgreSQL, and the database is automatically initialized with:
+- Main application database (`postgres`)
+- Keycloak database (`keycloak`)
+
+### Migrations
+Django migrations are applied automatically during container startup. If you need to run them manually:
 ```bash
 docker-compose exec web python manage.py migrate
-docker-compose exec web python manage.py createsuperuser
 ```
 
-5. Access the applications:
-- Django Admin: http://localhost:8000/admin
-- Keycloak Admin: http://localhost:8080
-- Frontend: http://localhost:3000
+### Creating a Superuser
+A superuser is created automatically with the credentials specified in the environment variables:
+- Username: admin
+- Email: admin@example.com
+- Password: admin
 
-## Keycloak Setup
+### Keycloak Configuration
+The setup script (`setup-keycloak.sh`) automatically configures Keycloak with:
+- A new realm: `django-app`
+- A client: `django-client`
+- Roles: `admin` and `user`
+- A test user: `testuser` (password: `testuser`)
 
-1. Access Keycloak Admin Console at http://localhost:8080
-2. Login with admin/admin
-3. Create a new realm named "django-app"
-4. Create a new client:
-   - Client ID: django-client
-   - Client Protocol: openid-connect
-   - Access Type: confidential
-   - Valid Redirect URIs: http://localhost:3000/*
-   - Web Origins: http://localhost:3000
+## Troubleshooting
 
-5. Create roles:
-   - admin
-   - user
+### Port Conflicts
+If you encounter port conflicts during startup:
+- PostgreSQL is configured to use port 5434 on the host (mapped to 5432 in the container)
+- If PostgreSQL port is still in use, edit the `docker-compose.yml` file to change the port mapping
 
-6. Create test users with appropriate roles
-
-## Development
-
-### Backend Development
+### Database Issues
+If Keycloak fails to connect to the database:
 ```bash
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run migrations
-python manage.py migrate
-
-# Start development server
-python manage.py runserver
+docker-compose exec db psql -U postgres -c "CREATE DATABASE keycloak;"
 ```
 
-### Frontend Development
+### Django Migrations
+If Django fails due to migration issues:
 ```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm start
+docker-compose exec web python manage.py makemigrations
+docker-compose exec web python manage.py migrate
 ```
 
-## Testing
-
-### Backend Tests
+### Keycloak Not Starting
+Check if the Keycloak database was created properly:
 ```bash
-python manage.py test
+docker-compose logs keycloak
 ```
 
-### Frontend Tests
+If it shows database connection errors, ensure the `init-db.sh` script was executed:
 ```bash
-cd frontend
-npm test
+docker-compose exec db cat /docker-entrypoint-initdb.d/init-db.sh
 ```
 
 ## API Endpoints
@@ -154,6 +151,36 @@ npm test
 - POST /api/toggle-mfa/ - Toggle MFA
 - POST /api/update-phone/ - Update phone number
 
+## Development Workflow
+
+### Backend Development
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs for a specific service
+docker-compose logs -f web
+
+# Run Django management commands
+docker-compose exec web python manage.py <command>
+
+# Apply migrations after model changes
+docker-compose exec web python manage.py makemigrations
+docker-compose exec web python manage.py migrate
+```
+
+### Frontend Development
+```bash
+# Start only the frontend service
+docker-compose up -d frontend
+
+# View frontend logs
+docker-compose logs -f frontend
+
+# Install new npm packages
+docker-compose exec frontend npm install <package-name>
+```
+
 ## Security Considerations
 
 - All sensitive data is stored in environment variables
@@ -163,14 +190,7 @@ npm test
 - Session management is handled by Redis
 - JWT tokens are used for API authentication
 - MFA is available for additional security
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+- Keycloak provides robust authentication and authorization
 
 ## License
 

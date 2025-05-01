@@ -17,6 +17,9 @@ DEBUG = env.bool('DEBUG', False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 
+# Frontend URL for password reset links
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -53,6 +56,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'mozilla_django_oidc.middleware.SessionRefresh',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -171,4 +175,7 @@ LOGOUT_REDIRECT_URL = '/'
 SITE_ID = 1
 
 # Email settings (for development)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' 
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Default from email
+DEFAULT_FROM_EMAIL = 'noreply@example.com' 

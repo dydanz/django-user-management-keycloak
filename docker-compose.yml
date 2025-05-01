@@ -10,6 +10,8 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=1
+      - SECRET_KEY=django-insecure-key-for-development-only-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1
       - DJANGO_SETTINGS_MODULE=core.settings
       - DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
       - REDIS_URL=redis://redis:6379/0
@@ -17,21 +19,32 @@ services:
       - KEYCLOAK_REALM=django-app
       - KEYCLOAK_CLIENT_ID=django-client
       - KEYCLOAK_CLIENT_SECRET=your-client-secret
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_EMAIL=admin@example.com
+      - DJANGO_SUPERUSER_PASSWORD=admin
+      - FRONTEND_URL=http://localhost:3000
     depends_on:
-      - db
-      - redis
-      - keycloak
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   db:
     image: postgres:15
     volumes:
       - postgres_data:/var/lib/postgresql/data/
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     environment:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5432:5432"
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
@@ -53,7 +66,21 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:16-alpine
+    command: sh -c "cd /app && npm install && npm start"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - web
 
 volumes:
   postgres_data:
