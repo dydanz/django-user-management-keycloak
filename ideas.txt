@@ -5,30 +5,14 @@ Here’s an explanation of the logic flow for how the Django app starts, integra
 ### **1. Django App Booting Process**
 When the Django app starts:
 1. **Settings Configuration**:
-   - Django reads the 
-
-settings.py
-
- file, which includes configurations for Keycloak integration, such as:
+   - Django reads the settings.py file, which includes configurations for Keycloak integration, such as:
      - `OIDC_OP_TOKEN_ENDPOINT`: The Keycloak endpoint for obtaining tokens.
-     - 
-
-OIDC_OP_USER_ENDPOINT
-
-: The Keycloak endpoint for verifying tokens and retrieving user information.
+     - `OIDC_OP_USER_ENDPOINT`: The Keycloak endpoint for verifying tokens and retrieving user information.
      - `OIDC_RP_CLIENT_ID` and `OIDC_RP_CLIENT_SECRET`: The client credentials for the Django app registered in Keycloak.
 
 2. **Middleware and Authentication Classes**:
-   - Django loads middleware and authentication backends defined in 
-
-settings.py
-
-.
-   - The custom 
-
-KeycloakAuthentication
-
- class is likely added to the `REST_FRAMEWORK` settings under `DEFAULT_AUTHENTICATION_CLASSES`:
+   - Django loads middleware and authentication backends defined in settings.py.
+   - The custom KeycloakAuthentication class is likely added to the `REST_FRAMEWORK` settings under `DEFAULT_AUTHENTICATION_CLASSES`:
      ```python
      REST_FRAMEWORK = {
          'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -37,25 +21,13 @@ KeycloakAuthentication
          ],
      }
      ```
-   - This ensures that all API requests are processed through the 
-
-KeycloakAuthentication
-
- class for token-based authentication.
+   - This ensures that all API requests are processed through the KeycloakAuthentication class for token-based authentication.
 
 3. **Database Initialization**:
    - Django initializes the database connection and applies migrations to ensure the database schema is up-to-date.
 
 4. **App Initialization**:
-   - Django loads installed apps (e.g., 
-
-rest_framework
-
-, 
-
-api
-
-) and their configurations.
+   - Django loads installed apps (e.g., rest_framework, api) and their configurations.
 
 ---
 
@@ -63,30 +35,14 @@ api
 Keycloak is integrated into the Django app for user authentication and management. The integration works as follows:
 
 #### **a. Token Verification**
-   - The 
-
-KeycloakAuthentication
-
- class handles token-based authentication.
-   - When an API request is made, the 
-
-authenticate
-
- method:
+   - The KeycloakAuthentication class handles token-based authentication.
+   - When an API request is made, the authenticate method:
      1. Extracts the `Authorization` header from the request.
-     2. Verifies the token by sending a request to the Keycloak 
-
-OIDC_OP_USER_ENDPOINT
-
-.
+     2. Verifies the token by sending a request to the Keycloak OIDC_OP_USER_ENDPOINT.
      3. If the token is valid, retrieves user information (e.g., `preferred_username`) from Keycloak.
 
 #### **b. User Synchronization**
-   - After verifying the token, the 
-
-KeycloakAuthentication
-
- class checks if the user exists in the Django database:
+   - After verifying the token, the KeycloakAuthentication class checks if the user exists in the Django database:
      - If the user exists, it returns the user object.
      - If the user does not exist, it creates a new user in the Django database using the information retrieved from Keycloak.
 
@@ -102,11 +58,7 @@ The user registration process involves both Keycloak and Django:
 
 #### **b. Registering a User in Django**
    - After creating the user in Keycloak, the app creates a corresponding user in the Django database:
-     - The 
-
-User.objects.create_user
-
- method is called to create the user locally.
+     - The User.objects.create_user method is called to create the user locally.
      - This ensures the user exists in Django for local permissions and profile management.
 
 #### **c. Response to the Client**
@@ -129,25 +81,13 @@ The user authentication process involves verifying the user's credentials and is
      ```
 
 #### **c. Token Verification**
-   - For each API request, the 
-
-KeycloakAuthentication
-
- class:
+   - For each API request, the KeycloakAuthentication class:
      1. Extracts the token from the `Authorization` header.
-     2. Verifies the token with Keycloak's user endpoint (
-
-OIDC_OP_USER_ENDPOINT
-
-).
+     2. Verifies the token with Keycloak's user endpoint (OIDC_OP_USER_ENDPOINT).
      3. If valid, retrieves the user information and ensures the user exists in Django.
 
 #### **d. User Object in Django**
-   - If the token is valid, the 
-
-KeycloakAuthentication
-
- class returns the user object, allowing the request to proceed with the authenticated user.
+   - If the token is valid, the KeycloakAuthentication class returns the user object, allowing the request to proceed with the authenticated user.
 
 ---
 
@@ -164,18 +104,10 @@ KeycloakAuthentication
 #### **User Authentication**
 1. User credentials are verified with Keycloak.
 2. Access tokens are issued and used for subsequent API requests.
-3. Tokens are verified by the 
-
-KeycloakAuthentication
-
- class for each request.
+3. Tokens are verified by the KeycloakAuthentication class for each request.
 
 #### **Token-Based Authentication**
-- The 
-
-KeycloakAuthentication
-
- class ensures that only valid tokens are accepted and synchronizes users between Keycloak and Django.
+- The KeycloakAuthentication class ensures that only valid tokens are accepted and synchronizes users between Keycloak and Django.
 
 ---
 
