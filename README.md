@@ -1,3 +1,8 @@
+![Django](https://img.shields.io/badge/django-%23092E20.svg?style=for-the-badge&logo=django&logoColor=white) ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white) ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+
+
+
+
 # Django User Management with Keycloak
 
 A full-stack monolithic application for user management with Django backend and React frontend, using Keycloak for authentication and authorization.
