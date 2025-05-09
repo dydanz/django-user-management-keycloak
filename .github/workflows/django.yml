@@ -27,6 +27,6 @@ jobs:
         pip install -r requirements.txt
     - name: Run Tests
       env:
-        DJANGO_SETTINGS_MODULE: core.settings
+        DJANGO_SETTINGS_MODULE: core.test_settings
       run: |
         pytest
