@@ -30,7 +30,7 @@ services:
         condition: service_started
 
   db:
-    image: postgres:15
+    image: postgres:14
     volumes:
       - postgres_data:/var/lib/postgresql/data/
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh

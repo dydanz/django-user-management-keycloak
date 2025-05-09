@@ -16,6 +16,9 @@ import requests
 # Initialize logger
 logger = logging.getLogger(__name__)
 
+# Security schema for protected endpoints
+security_requirements = [{'Bearer': []}]
+
 # Request and response schemas for Swagger
 register_schema = openapi.Schema(
     type=openapi.TYPE_OBJECT,
@@ -45,7 +48,6 @@ reset_password_schema = openapi.Schema(
     }
 )
 
-# Add login schema
 login_schema = openapi.Schema(
     type=openapi.TYPE_OBJECT,
     required=['username', 'password'],
@@ -139,36 +141,65 @@ def register(request):
                 'Content-Type': 'application/json'
             }
         )
-        
-        if create_user_response.status_code >= 400:
-            # Handle Keycloak error
-            error_message = create_user_response.text
-            logger.error(f"Failed to create user in Keycloak: {error_message}")
-            return Response({'error': f'Failed to create user in Keycloak: {error_message}'}, 
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # Create user in Django (for local permissions/profile)
-        user = User.objects.create_user(username=username, email=email, password=password)
 
-        logger.info(f"User {username} created successfully in Django and Keycloak")
-        return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
+        if create_user_response.status_code != 201:
+            logger.error(f"Failed to create user in Keycloak: {create_user_response.text}")
+            return Response({'error': 'Failed to create user in Keycloak'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Get the created user's ID from Keycloak
+        user_id_response = requests.get(
+            f"{settings.KEYCLOAK_URL}/admin/realms/{settings.KEYCLOAK_REALM}/users",
+            params={'username': username},
+            headers={
+                'Authorization': f'Bearer {admin_token}',
+                'Content-Type': 'application/json'
+            }
+        )
+
+        if user_id_response.status_code != 200:
+            logger.error(f"Failed to get user ID from Keycloak: {user_id_response.text}")
+            return Response({'error': 'Failed to get user ID from Keycloak'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        keycloak_users = user_id_response.json()
+        if not keycloak_users:
+            logger.error("User not found in Keycloak after creation")
+            return Response({'error': 'User not found in Keycloak after creation'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        keycloak_id = keycloak_users[0]['id']
+
+        # Create user in Django with the Keycloak ID
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password
+        )
+        
+        # Update the user's profile with the Keycloak ID
+        user.userprofile.keycloak_id = keycloak_id
+        user.userprofile.save()
+
+        logger.info(f"User {username} created successfully with Keycloak ID: {keycloak_id}")
+        return Response({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
         
     except Exception as e:
         return Response({'error': f'Registration error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @swagger_auto_schema(
     method='post',
-    responses={
-        200: openapi.Response('Successfully logged out', schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'message': openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        )),
-    },
+    responses={200: 'Successfully logged out'},
     operation_description="Logout the current user",
     operation_summary="User Logout",
-    tags=['Authentication']
+    tags=['Authentication'],
+    security=security_requirements,
+    manual_parameters=[
+        openapi.Parameter(
+            'Authorization',
+            openapi.IN_HEADER,
+            description='Bearer <token>',
+            type=openapi.TYPE_STRING,
+            required=True
+        )
+    ]
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -180,26 +211,11 @@ def logout_view(request):
     method='post',
     request_body=forgot_password_schema,
     responses={
-        200: openapi.Response('Password reset email sent', schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'message': openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        )),
-        400: openapi.Response('Email is required', schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'error': openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        )),
-        404: openapi.Response('User not found', schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'error': openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        )),
+        200: 'Password reset email sent',
+        400: 'Email is required',
+        404: 'User not found'
     },
-    operation_description="Request a password reset email",
+    operation_description="Request password reset email",
     operation_summary="Forgot Password",
     tags=['Authentication']
 )
@@ -234,26 +250,11 @@ def forgot_password(request):
     method='post',
     request_body=reset_password_schema,
     responses={
-        200: openapi.Response('Password reset successful', schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'message': openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        )),
-        400: openapi.Response('Invalid request', schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'error': openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        )),
-        404: openapi.Response('User not found', schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'error': openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        )),
+        200: 'Password reset successful',
+        400: 'Invalid request',
+        404: 'User not found'
     },
-    operation_description="Reset password using the token received via email",
+    operation_description="Reset password using token from email",
     operation_summary="Reset Password",
     tags=['Authentication']
 )
@@ -305,7 +306,7 @@ def reset_password(request):
             }
         )),
     },
-    operation_description="Login using Keycloak",
+    operation_description="Login using Keycloak credentials",
     operation_summary="User Login",
     tags=['Authentication']
 )
@@ -354,8 +355,25 @@ def login(request):
         logger.error(f"Login error: {str(e)}")
         return Response({'error': f'Authentication error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@swagger_auto_schema(
+    method='get',
+    responses={200: 'Keycloak configuration status'},
+    operation_description="Check Keycloak configuration",
+    operation_summary="Keycloak Health Check",
+    tags=['System'],
+    security=security_requirements,
+    manual_parameters=[
+        openapi.Parameter(
+            'Authorization',
+            openapi.IN_HEADER,
+            description='Bearer <token>',
+            type=openapi.TYPE_STRING,
+            required=True
+        )
+    ]
+)
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def keycloak_check(request):
     """Check Keycloak configuration"""
     try:
@@ -412,8 +430,28 @@ def keycloak_check(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@swagger_auto_schema(
+    method='post',
+    responses={
+        200: 'Admin check successful',
+        401: 'Authentication failed'
+    },
+    operation_description="Check admin credentials",
+    operation_summary="Admin Check",
+    tags=['System'],
+    security=security_requirements,
+    manual_parameters=[
+        openapi.Parameter(
+            'Authorization',
+            openapi.IN_HEADER,
+            description='Bearer <token>',
+            type=openapi.TYPE_STRING,
+            required=True
+        )
+    ]
+)
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_check(request):
     """Check admin login credentials without Keycloak"""
     username = request.data.get('username')
@@ -435,4 +473,4 @@ def admin_check(request):
         return Response({
             'success': False,
             'message': 'Invalid credentials or user is not a superuser'
-        }, status=status.HTTP_401_UNAUTHORIZED) 
+        }, status=status.HTTP_401_UNAUTHORIZED)

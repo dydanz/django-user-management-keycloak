@@ -17,3 +17,28 @@ Check if we need to create a superuser in the Django database:
 ```
 docker-compose exec web python manage.py shell -c "from django.contrib.auth.models import User; admin = User.objects.get(username='admin'); print(f'Is superuser: {admin.is_superuser}')"
 ```
+
+Django Users
+
+check if the superuser exists and if they have the correct permissions:
+$ python manage.py shell -c "from django.contrib.auth.models import User; print('Superuser exists:', User.objects.filter(username='admin').exists()); admin = User.objects.filter(username='admin').first(); print('Is superuser:', admin.is_superuser if admin else 'No admin user') if admin else None"
+
+if superuser doesn't exist
+$ python manage.py createsuperuser --username admin --email admin@example.com --noinput
+
+create users table by running the migrations
+$ python manage.py makemigrations users
+
+create and apply superuser
+$ python manage.py migrate users
+
+Delete and Re-create superuser
+$ python manage.py shell -c "from django.contrib.auth.models import User; User.objects.filter(username='admin').delete()"
+$ python manage.py shell -c "from django.contrib.auth.models import User; user = User.objects.create_superuser('admin', 'admin@example.com', 'admin'); print('Admin user created successfully with UserProfile')"
+
+Init Django Admin Page
+$ python manage.py migrate sites
+$ python manage.py migrate
+
+
+curl -Method GET -Uri "http://localhost:8000/users/api/profile/" -Headers @{"accept"="application/json"; "Authorization"="Bearer YOUR_TOKEN_HERE"}

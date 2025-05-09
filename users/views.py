@@ -5,11 +5,23 @@ from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import status
 from .models import UserProfile
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-@login_required
+# Security schema for protected endpoints
+security_requirements = [{'Bearer': []}]
+
+# Authorization parameter for protected endpoints
+bearer_auth = openapi.Parameter(
+    'Authorization',
+    openapi.IN_HEADER,
+    description='Bearer <token>',
+    type=openapi.TYPE_STRING,
+    required=True
+)
+
 def profile_view(request):
     return render(request, 'users/profile.html')
 
@@ -28,21 +40,28 @@ def profile_view(request):
                 }
             )
         ),
+        401: 'Authentication failed',
+        403: 'Permission denied'
     },
     operation_description="Get the current user's profile information",
     operation_summary="Get User Profile",
-    tags=['User Profile']
+    tags=['User Profile'],
+    security=security_requirements,
+    manual_parameters=[bearer_auth]
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_profile(request):
-    profile = request.user.userprofile
-    return Response({
-        'username': request.user.username,
-        'email': request.user.email,
-        'mfa_enabled': profile.mfa_enabled,
-        'phone_number': profile.phone_number,
-    })
+    try:
+        profile = request.user.userprofile
+        return Response({
+            'username': request.user.username,
+            'email': request.user.email,
+            'mfa_enabled': profile.mfa_enabled,
+            'phone_number': profile.phone_number,
+        })
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @swagger_auto_schema(
     method='post',
@@ -56,10 +75,13 @@ def get_user_profile(request):
                 }
             )
         ),
+        401: 'Authentication failed'
     },
     operation_description="Toggle Multi-Factor Authentication (MFA) for the current user",
     operation_summary="Toggle MFA",
-    tags=['User Profile']
+    tags=['User Profile'],
+    security=security_requirements,
+    manual_parameters=[bearer_auth]
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -88,19 +110,14 @@ def toggle_mfa(request):
                 }
             )
         ),
-        400: openapi.Response(
-            description='Phone number is required',
-            schema=openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'error': openapi.Schema(type=openapi.TYPE_STRING),
-                }
-            )
-        ),
+        400: 'Phone number is required',
+        401: 'Authentication failed'
     },
     operation_description="Update the phone number for the current user",
     operation_summary="Update Phone Number",
-    tags=['User Profile']
+    tags=['User Profile'],
+    security=security_requirements,
+    manual_parameters=[bearer_auth]
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -112,4 +129,4 @@ def update_phone(request):
     profile = request.user.userprofile
     profile.phone_number = phone_number
     profile.save()
-    return Response({'phone_number': profile.phone_number}) 
+    return Response({'phone_number': profile.phone_number})
