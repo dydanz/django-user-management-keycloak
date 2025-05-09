@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>User Profile</h1>
+    <div class="profile-info">
+        <p><strong>Username:</strong> {{ user.username }}</p>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        <p><strong>MFA Enabled:</strong> {{ user.userprofile.mfa_enabled }}</p>
+        <p><strong>Phone Number:</strong> {{ user.userprofile.phone_number }}</p>
+    </div>
+</div>
+{% endblock %} 
