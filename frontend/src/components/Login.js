@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Container,
@@ -9,8 +9,9 @@ import {
   Link,
   Box,
   Alert,
+  CircularProgress,
 } from '@mui/material';
-import axios from 'axios';
+import authService from '../services/authService';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -19,6 +20,20 @@ const Login = () => {
     password: '',
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [keycloakStatus, setKeycloakStatus] = useState(null);
+
+  useEffect(() => {
+    const checkKeycloak = async () => {
+      try {
+        const status = await authService.checkKeycloakStatus();
+        setKeycloakStatus(status);
+      } catch (err) {
+        console.error('Failed to check Keycloak status:', err);
+      }
+    };
+    checkKeycloak();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({
@@ -29,22 +44,23 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
+
     try {
-      const response = await axios.post('/api/login/', formData);
-      // Store the token
-      localStorage.setItem('token', response.data.token);
+      await authService.login(formData.username, formData.password);
       
-      // Also store refresh token if available
-      if (response.data.refresh_token) {
-        localStorage.setItem('refresh_token', response.data.refresh_token);
+      // Check if user is admin after successful login
+      const adminStatus = await authService.checkAdminStatus();
+      if (adminStatus.is_admin) {
+        navigate('/admin');
+      } else {
+        navigate('/profile');
       }
-      
-      // Configure axios to use the token for all future requests
-      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-      
-      navigate('/profile');
     } catch (err) {
-      setError(err.response?.data?.error || 'An error occurred');
+      setError(err.error || 'Failed to login. Please check your credentials.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,6 +83,11 @@ const Login = () => {
               {error}
             </Alert>
           )}
+          {keycloakStatus?.status === 'connected' && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Using Keycloak authentication
+            </Alert>
+          )}
           <form onSubmit={handleSubmit}>
             <TextField
               margin="normal"
@@ -79,6 +100,7 @@ const Login = () => {
               autoFocus
               value={formData.username}
               onChange={handleChange}
+              disabled={loading}
             />
             <TextField
               margin="normal"
@@ -91,14 +113,16 @@ const Login = () => {
               autoComplete="current-password"
               value={formData.password}
               onChange={handleChange}
+              disabled={loading}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
+              disabled={loading}
             >
-              Sign In
+              {loading ? <CircularProgress size={24} /> : 'Sign In'}
             </Button>
             <Box sx={{ textAlign: 'center' }}>
               <Link component={RouterLink} to="/forgot-password" variant="body2">
